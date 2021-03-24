@@ -123,6 +123,17 @@ func parsePort(s string) (uint16, error) {
 	return uint16(m), nil
 }
 
+func parseInterfaceIndex(s string) (uint16, error) {
+	m, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, err
+	}
+	if m < 0 || m > 65535 {
+		return 0, &ParseError{l18n.Sprintf("Invalid interface index"), s}
+	}
+	return uint16(m), nil
+}
+
 func parsePersistentKeepalive(s string) (uint16, error) {
 	if s == "off" {
 		return 0, nil
@@ -242,6 +253,7 @@ func FromWgQuick(s string, name string) (*Config, error) {
 			switch key {
 			case "privatekey":
 				k, err := parseKeyBase64(val)
+				// log.Printf("Parsing privatekey %+v, %+v at key=%s, val=%s, raw=%s, rawraw=%s", k, err, key, val, lineLower, line)
 				if err != nil {
 					return nil, err
 				}
@@ -253,6 +265,13 @@ func FromWgQuick(s string, name string) (*Config, error) {
 					return nil, err
 				}
 				conf.Interface.ListenPort = p
+			case "interfaceindex":
+				p, err := parseInterfaceIndex(val)
+				// log.Printf("Parsing interface index %d, %+v at key=%s, val=%s, raw=%s, rawraw=%s", p, err, key, val, lineLower, line)
+				if err != nil {
+					return nil, err
+				}
+				conf.Interface.InterfaceIndex = p
 			case "mtu":
 				m, err := parseMTU(val)
 				if err != nil {

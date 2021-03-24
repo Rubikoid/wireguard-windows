@@ -43,16 +43,17 @@ type Config struct {
 }
 
 type Interface struct {
-	PrivateKey Key
-	Addresses  []IPCidr
-	ListenPort uint16
-	MTU        uint16
-	DNS        []net.IP
-	DNSSearch  []string
-	PreUp      string
-	PostUp     string
-	PreDown    string
-	PostDown   string
+	PrivateKey     Key
+	Addresses      []IPCidr
+	ListenPort     uint16
+	MTU            uint16
+	DNS            []net.IP
+	DNSSearch      []string
+	PreUp          string
+	PostUp         string
+	PreDown        string
+	PostDown       string
+	InterfaceIndex uint16
 }
 
 type Peer struct {

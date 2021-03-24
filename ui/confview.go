@@ -53,6 +53,8 @@ type interfaceView struct {
 	scripts      *labelTextLine
 	toggleActive *toggleActiveLine
 	lines        []widgetsLine
+
+	interfaceIndex *labelTextLine
 }
 
 type peerView struct {
@@ -307,6 +309,7 @@ func newInterfaceView(parent walk.Container) (*interfaceView, error) {
 		{l18n.Sprintf("Addresses:"), &iv.addresses},
 		{l18n.Sprintf("DNS servers:"), &iv.dns},
 		{l18n.Sprintf("Scripts:"), &iv.scripts},
+		{"InterfaceIndex:", &iv.interfaceIndex},
 	}
 	if iv.lines, err = createLabelTextLines(items, parent, &disposables); err != nil {
 		return nil, err
@@ -383,6 +386,8 @@ func (iv *interfaceView) apply(c *conf.Interface) {
 	} else {
 		iv.mtu.hide()
 	}
+
+	iv.interfaceIndex.show(strconv.Itoa(int(c.InterfaceIndex)))
 
 	if len(c.Addresses) > 0 {
 		addrStrings := make([]string, len(c.Addresses))

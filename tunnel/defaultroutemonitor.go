@@ -17,7 +17,7 @@ import (
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
-func bindSocketRoute(family winipcfg.AddressFamily, binder conn.BindSocketToInterface, ourLUID winipcfg.LUID, lastLUID *winipcfg.LUID, lastIndex *uint32, blackholeWhenLoop bool) error {
+func bindSocketRoute(family winipcfg.AddressFamily, binder conn.BindSocketToInterface, ourLUID winipcfg.LUID, lastLUID *winipcfg.LUID, lastIndex *uint32, blackholeWhenLoop bool, InterfaceIndex uint16) error {
 	r, err := winipcfg.GetIPForwardTable2(family)
 	if err != nil {
 		return err
@@ -26,9 +26,27 @@ func bindSocketRoute(family winipcfg.AddressFamily, binder conn.BindSocketToInte
 	index := uint32(0)       // Zero is "unspecified", which for IP_UNICAST_IF resets the value, which is what we want.
 	luid := winipcfg.LUID(0) // Hopefully luid zero is unspecified, but hard to find docs saying so.
 	for i := range r {
+
+		if InterfaceIndex > 0 && r[i].InterfaceLUID != ourLUID && r[i].InterfaceIndex == uint32(InterfaceIndex) {
+			ifrow, err := r[i].InterfaceLUID.Interface()
+			if err != nil || ifrow.OperStatus != winipcfg.IfOperStatusUp {
+				continue
+			}
+			iface, err := r[i].InterfaceLUID.IPInterface(family)
+			if err != nil {
+				continue
+			}
+			lowestMetric = r[i].Metric + iface.Metric
+			index = r[i].InterfaceIndex
+			luid = r[i].InterfaceLUID
+			log.Printf("SELECTED INTERFACE at id=%d", InterfaceIndex)
+			break
+		}
+
 		if r[i].DestinationPrefix.PrefixLength != 0 || r[i].InterfaceLUID == ourLUID {
 			continue
 		}
+
 		ifrow, err := r[i].InterfaceLUID.Interface()
 		if err != nil || ifrow.OperStatus != winipcfg.IfOperStatusUp {
 			continue
@@ -38,6 +56,8 @@ func bindSocketRoute(family winipcfg.AddressFamily, binder conn.BindSocketToInte
 		if err != nil {
 			continue
 		}
+
+		log.Printf("[2] Found interface index=%d id=%+v addr=%+v", r[i].InterfaceIndex, r[i].InterfaceLUID, r[i].DestinationPrefix)
 
 		if r[i].Metric+iface.Metric < lowestMetric {
 			lowestMetric = r[i].Metric + iface.Metric
@@ -52,7 +72,7 @@ func bindSocketRoute(family winipcfg.AddressFamily, binder conn.BindSocketToInte
 	*lastIndex = index
 	blackhole := blackholeWhenLoop && index == 0
 	if family == windows.AF_INET {
-		log.Printf("Binding v4 socket to interface %d (blackhole=%v)", index, blackhole)
+		log.Printf("Binding v4 socket to interface %d (blackhole=%v) (index=%d)", index, blackhole, InterfaceIndex)
 		return binder.BindSocketToInterface4(index, blackhole)
 	} else if family == windows.AF_INET6 {
 		log.Printf("Binding v6 socket to interface %d (blackhole=%v)", index, blackhole)
@@ -61,7 +81,7 @@ func bindSocketRoute(family winipcfg.AddressFamily, binder conn.BindSocketToInte
 	return nil
 }
 
-func monitorDefaultRoutes(family winipcfg.AddressFamily, binder conn.BindSocketToInterface, autoMTU bool, blackholeWhenLoop bool, tun *tun.NativeTun) ([]winipcfg.ChangeCallback, error) {
+func monitorDefaultRoutes(family winipcfg.AddressFamily, binder conn.BindSocketToInterface, autoMTU bool, blackholeWhenLoop bool, tun *tun.NativeTun, InterfaceIndex uint16) ([]winipcfg.ChangeCallback, error) {
 	var minMTU uint32
 	if family == windows.AF_INET {
 		minMTU = 576
@@ -73,7 +93,7 @@ func monitorDefaultRoutes(family winipcfg.AddressFamily, binder conn.BindSocketT
 	lastIndex := ^uint32(0)
 	lastMTU := uint32(0)
 	doIt := func() error {
-		err := bindSocketRoute(family, binder, ourLUID, &lastLUID, &lastIndex, blackholeWhenLoop)
+		err := bindSocketRoute(family, binder, ourLUID, &lastLUID, &lastIndex, blackholeWhenLoop, InterfaceIndex)
 		if err != nil {
 			return err
 		}

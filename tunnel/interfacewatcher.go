@@ -101,7 +101,7 @@ func (iw *interfaceWatcher) setup(family winipcfg.AddressFamily) {
 	var err error
 
 	log.Printf("Monitoring default %s routes", ipversion)
-	*changeCallbacks, err = monitorDefaultRoutes(family, iw.binder, iw.conf.Interface.MTU == 0, hasDefaultRoute(family, iw.conf.Peers), iw.tun)
+	*changeCallbacks, err = monitorDefaultRoutes(family, iw.binder, iw.conf.Interface.MTU == 0, hasDefaultRoute(family, iw.conf.Peers), iw.tun, iw.conf.Interface.InterfaceIndex)
 	if err != nil {
 		iw.errors <- interfaceWatcherError{services.ErrorBindSocketsToDefaultRoutes, err}
 		return
